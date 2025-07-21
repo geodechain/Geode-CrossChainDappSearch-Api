@@ -11,7 +11,7 @@ function buildOrClause(field, values) {
 
 router.get('/dapp-search', async function (req, res, next) {
     try {
-        let { category, chains, ratings, limit = 20, page = 1 } = req.query;
+      let { category, chains, ratings, limit = 20, page = 1 } = req.query; 
         limit = parseInt(limit);
         page = parseInt(page);
         const offset = (page - 1) * limit;
