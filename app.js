@@ -3,9 +3,31 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+const cors = require('cors');
+
+const allowedOrigins = [
+  /^https:\/\/geodeapps\.com(\/.*)?$/, // geodeapps.com and subpaths
+  /^http:\/\/localhost(:\d+)?$/,      // localhost with any port
+  /^https:\/\/localhost(:\d+)?$/      // localhost with any port (https)
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.some(pattern => pattern.test(origin))) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+};
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
+var dappSearchRouter = require('./routes/dapp-search');
+
 
 var app = express();
 
@@ -18,9 +40,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(cors(corsOptions));
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+app.use('/', dappSearchRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
