@@ -29,6 +29,7 @@ var usersRouter = require('./routes/users');
 var dappSearchRouter = require('./routes/dapp-search');
 var singleDappRouter = require('./routes/SingleDapp');
 
+var favoritesRouter = require('./routes/favorites'); 
 
 var app = express();
 
@@ -47,6 +48,7 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/', dappSearchRouter);
 app.use('/', singleDappRouter);
+app.use('/', favoritesRouter); 
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
