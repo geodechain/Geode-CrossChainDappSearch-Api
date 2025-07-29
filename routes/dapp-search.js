@@ -11,12 +11,14 @@ function buildOrClause(field, values) {
 
 router.get('/dapp-search', async function (req, res, next) {
     try {
-      let { category, chains, ratings, limit = 20, page = 1 } = req.query; 
+        let { category, chains, ratings, name, limit = 20, page = 1 } = req.query; 
         limit = parseInt(limit);
         page = parseInt(page);
         const offset = (page - 1) * limit;
 
         let whereClauses = [];
+        let queryParams = [limit, offset];
+        let paramIndex = 3;
 
         // Handle multiple conditions (OR clause)
         if (category) {
@@ -25,15 +27,21 @@ router.get('/dapp-search', async function (req, res, next) {
             if (clause) whereClauses.push(`(${clause})`);
         }
         if (chains) {
-            const chains = Array.isArray(chains) ? type : (typeof chains === 'string' ? chains.split(',') : [chains]);
-            const clause = buildOrClause('dm.chain', chain);
+            const chainsArr = Array.isArray(chains) ? chains : (typeof chains === 'string' ? chains.split(',') : [chains]);
+            const clause = buildOrClause('dm.chain', chainsArr);
             if (clause) whereClauses.push(`(${clause})`);
         }
         if (ratings) {
             whereClauses.push(`rm.ratings >= ${parseFloat(ratings)}`);
         }
+        if (name) {
+            whereClauses.push(`dm.name ILIKE $${paramIndex}`);
+            queryParams.push(`%${name}%`);
+            paramIndex++;
+        }
 
         let whereSQL = '';
+        console.log(whereClauses, "whereclo")
         if (whereClauses.length > 0) {
             whereSQL = 'WHERE ' + whereClauses.join(' AND ');
         }
@@ -57,8 +65,9 @@ router.get('/dapp-search', async function (req, res, next) {
             LIMIT $1 OFFSET $2
         `;
 
+        console.log(query, queryParams, "query")
         // get db output from db connection
-        const result = await db.query(query, [limit, offset]);
+        const result = await db.query(query, queryParams);
         // return the result
         res.json(result.rows);
     } catch (e) {
