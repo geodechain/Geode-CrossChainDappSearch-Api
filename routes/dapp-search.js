@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { authenticateToken } = require('../middleware/auth');
 
 // function to build OR clauses
 function buildOrClause(field, values) {
@@ -9,7 +10,7 @@ function buildOrClause(field, values) {
     return values.map(val => `${field} = '${val}'`).join(' OR ');
 }
 
-router.get('/dapp-search', async function (req, res, next) {
+router.get('/dapp-search', authenticateToken, async function (req, res, next) {
     try {
       let { category, chains, ratings, limit = 20, page = 1 } = req.query; 
         limit = parseInt(limit);

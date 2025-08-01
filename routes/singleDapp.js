@@ -1,6 +1,7 @@
 var express = require('express');
 var router = express.Router();
 const db = require('../db');
+const { authenticateToken } = require('../middleware/auth');
 
 // Helper function to parse TEXT fields containing JSON from PostgreSQL
 function parsePostgresArray(field, fieldName = '') {
@@ -90,7 +91,7 @@ function parsePostgresArray(field, fieldName = '') {
 }
 
 // GET dapp details by ID
-router.get('/api/dapps/:dapp_id', async function(req, res, next) {
+router.get('/api/dapps/:dapp_id', authenticateToken, async function (req, res, next) {
   try {
     const { dapp_id } = req.params;
     
