@@ -195,15 +195,19 @@ router.get('/api/favorites/:accountId', async function(req, res, next) {
     if (req.query.includeDetails === 'true' && favorites.length > 0) {
       const dappDetailsQuery = `
         SELECT 
-          dapp_id,
-          name,
-          description,
-          logo,
-          website,
-          categories
-        FROM dapps_main 
-        WHERE dapp_id = ANY($1)
-        ORDER BY name ASC
+          dm.dapp_id,
+          dm.name,
+          dm.description,
+          dm.logo,
+          dm.website,
+          dm.categories,
+          dm.chains,
+          dm.link,
+          COALESCE(rm.ratings, 0) as ratings
+        FROM dapps_main dm
+        LEFT JOIN reviews_make rm ON dm.dapp_id = rm.dapp_id
+        WHERE dm.dapp_id = ANY($1)
+        ORDER BY dm.name ASC
       `;
       const dappDetails = await db.query(dappDetailsQuery, [favorites]);
       
