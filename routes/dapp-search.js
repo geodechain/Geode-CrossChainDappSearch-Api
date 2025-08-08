@@ -34,6 +34,8 @@ router.get('/dapp-search', authenticateToken, async function (req, res, next) {
         }
         if (ratings) {
             whereClauses.push(`rm.ratings >= ${parseFloat(ratings)}`);
+        }else{
+            whereClauses.push(`rm.ratings >= 1`);
         }
         if (name) {
             whereClauses.push(`dm.name ILIKE $${paramIndex}`);
@@ -62,7 +64,7 @@ router.get('/dapp-search', authenticateToken, async function (req, res, next) {
                 reviews_make rm ON dm.dapp_id = rm.dapp_id
             ${whereSQL}
             ORDER BY 
-                dm.dapp_id ASC
+                rm.ratings DESC
             LIMIT $1 OFFSET $2
         `;
 
