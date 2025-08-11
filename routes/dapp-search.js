@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { authenticateToken } = require('../middleware/auth');
 
 // function to build OR clauses
 function buildOrClause(field, values) {
@@ -9,7 +10,7 @@ function buildOrClause(field, values) {
     return values.map(val => `${field} = '${val}'`).join(' OR ');
 }
 
-router.get('/dapp-search', async function (req, res, next) {
+router.get('/dapp-search', authenticateToken, async function (req, res, next) {
     try {
         let { category, chains, ratings, name, limit = 20, page = 1 } = req.query; 
         limit = parseInt(limit);
@@ -33,6 +34,8 @@ router.get('/dapp-search', async function (req, res, next) {
         }
         if (ratings) {
             whereClauses.push(`rm.ratings >= ${parseFloat(ratings)}`);
+        }else{
+            whereClauses.push(`rm.ratings >= 1`);
         }
         if (name) {
             whereClauses.push(`dm.name ILIKE $${paramIndex}`);
@@ -61,7 +64,7 @@ router.get('/dapp-search', async function (req, res, next) {
                 reviews_make rm ON dm.dapp_id = rm.dapp_id
             ${whereSQL}
             ORDER BY 
-                dm.dapp_id ASC
+                rm.ratings DESC
             LIMIT $1 OFFSET $2
         `;
 

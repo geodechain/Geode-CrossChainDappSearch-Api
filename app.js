@@ -27,7 +27,8 @@ const corsOptions = {
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 var dappSearchRouter = require('./routes/dapp-search');
-var singleDappRouter = require('./routes/SingleDapp');
+var singleDappRouter = require('./routes/singleDapp');
+var authRouter = require('./routes/auth');
 
 var favoritesRouter = require('./routes/favorites'); 
 
@@ -45,6 +46,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors(corsOptions));
 
 app.use('/', indexRouter);
+app.use('/auth', authRouter);
 app.use('/users', usersRouter);
 app.use('/', dappSearchRouter);
 app.use('/', singleDappRouter);
