@@ -30,6 +30,9 @@ const validateClientCredentials = async (clientId, clientSecret) => {
 
     // Compare the provided client secret with the hashed secret in database
     const isValidSecret = await bcrypt.compare(clientSecret, client.client_secret);
+    console.log(clientSecret, "clientSecret")
+    console.log(client.client_secret, "client.client_secret")
+    console.log(isValidSecret, "IsVALID")
     
     if (!isValidSecret) {
       console.log(`Invalid client secret for client: ${clientId}`);
@@ -61,7 +64,9 @@ router.post('/generate-token', async (req, res) => {
 
     // Validate client credentials against database
     const isValidClient = await validateClientCredentials(clientId, clientSecret);
-    
+
+    console.log(isValidClient, "isValid L68")
+
     if (!isValidClient) {
       return res.status(401).json({
         success: false,
@@ -70,6 +75,8 @@ router.post('/generate-token', async (req, res) => {
       });
     }
 
+
+    console.log(clientId, "client ID")
     // Generate access token
     const accessToken = jwt.sign(
       {

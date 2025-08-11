@@ -18,6 +18,7 @@ const authenticateToken = (req, res, next) => {
     audience: config.jwt.audience
   }, (err, decoded) => {
     if (err) {
+      console.log(err, " >>>>> err")
       if (err.name === 'TokenExpiredError') {
         return res.status(401).json({ 
           success: false, 
