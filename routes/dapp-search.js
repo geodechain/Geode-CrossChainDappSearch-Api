@@ -12,7 +12,7 @@ function buildOrClause(field, values) {
 
 router.get('/dapp-search', authenticateToken, async function (req, res, next) {
     try {
-        let { category, chains, ratings, name, limit = 20, page = 1 } = req.query; 
+        let { category, chain, ratings, name, limit = 20, page = 1 } = req.query; 
         limit = parseInt(limit);
         page = parseInt(page);
         const offset = (page - 1) * limit;
@@ -27,9 +27,9 @@ router.get('/dapp-search', authenticateToken, async function (req, res, next) {
             const clause = buildOrClause('dm.categories', categories);
             if (clause) whereClauses.push(`(${clause})`);
         }
-        if (chains) {
-            const chainsArr = Array.isArray(chains) ? chains : (typeof chains === 'string' ? chains.split(',') : [chains]);
-            const clause = buildOrClause('dm.chain', chainsArr);
+        if (chain) {
+            const chainsArr = Array.isArray(chain) ? chain : (typeof chain === 'string' ? chain.split(',') : [chain]);
+            const clause = buildOrClause('dm.chains', chainsArr);
             if (clause) whereClauses.push(`(${clause})`);
         }
         if (ratings) {
