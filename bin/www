@@ -1,6 +1,17 @@
 #!/usr/bin/env node
 
 /**
+ * HTTP Server Entry Point
+ * 
+ * This file is the entry point for starting the HTTP server.
+ * It creates an HTTP server instance and configures it to listen
+ * on the specified port.
+ * 
+ * The server is created using the Express application instance
+ * and handles HTTP requests by passing them to the Express app.
+ */
+
+/**
  * Module dependencies.
  */
 
@@ -17,32 +28,50 @@ app.set('port', port);
 
 /**
  * Create HTTP server.
+ * 
+ * Create an HTTP server instance using the Express application.
+ * The Express app handles all the routing, middleware, and request processing.
+ * The HTTP server just provides the transport layer.
  */
-
 var server = http.createServer(app);
 
 /**
  * Listen on provided port, on all network interfaces.
+ * 
+ * Start the server and make it listen for incoming HTTP requests.
+ * The server will accept connections from any network interface (0.0.0.0).
+ */
+server.listen(port);
+
+/**
+ * Event Handlers
+ *
+ * Register event handlers for server events like errors and successful startup.
  */
 
-server.listen(port);
+// Handle server errors
 server.on('error', onError);
+
+// Handle successful server startup
 server.on('listening', onListening);
 
 /**
  * Normalize a port into a number, string, or false.
+ * 
+ * This function takes a port value (which could be a string, number, or pipe name)
+ * and normalizes it to a valid port number or returns false if invalid.
+ * 
+ * @param {string|number} val - The port value to normalize
+ * @returns {number|string|false} - Normalized port or false if invalid
  */
-
 function normalizePort(val) {
-  var port = parseInt(val, 10);
+  var port = parseInt(val, 10);  // Parse as base-10 integer
 
   if (isNaN(port)) {
-    // named pipe
     return val;
   }
 
   if (port >= 0) {
-    // port number
     return port;
   }
 
@@ -51,18 +80,24 @@ function normalizePort(val) {
 
 /**
  * Event listener for HTTP server "error" event.
+ * 
+ * This function handles server errors that occur during startup or operation.
+ * It provides user-friendly error messages for common issues.
+ * 
+ * @param {Error} error - The error that occurred
  */
-
 function onError(error) {
   if (error.syscall !== 'listen') {
+    // Not a listening error, re-throw it
     throw error;
   }
 
+  // Create a descriptive message for the bind error
   var bind = typeof port === 'string'
     ? 'Pipe ' + port
     : 'Port ' + port;
 
-  // handle specific listen errors with friendly messages
+  // Handle specific listen errors with friendly messages
   switch (error.code) {
     case 'EACCES':
       console.error(bind + ' requires elevated privileges');
@@ -79,12 +114,16 @@ function onError(error) {
 
 /**
  * Event listener for HTTP server "listening" event.
+ * 
+ * This function is called when the server successfully starts listening
+ * for incoming connections. It logs the server address and port.
  */
-
 function onListening() {
   var addr = server.address();
   var bind = typeof addr === 'string'
     ? 'pipe ' + addr
     : 'port ' + addr.port;
+
+  // Log successful server startup
   debug('Listening on ' + bind);
 }
