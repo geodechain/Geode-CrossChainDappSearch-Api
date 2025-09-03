@@ -14,12 +14,12 @@ A comprehensive REST API for searching and managing cross-chain decentralized ap
 
 ## Features
 
-- 🔐 **JWT Authentication** - Secure token-based authentication with access and refresh tokens
-- 🔍 **DApp Search** - Advanced search with filtering by categories, chains, ratings, and name
-- 📱 **DApp Details** - Comprehensive DApp information including metrics, reviews, and social links
-- ⭐ **Favorites Management** - User favorites system with blockchain address-based identification
-- 🛡️ **CORS Protection** - Configurable cross-origin resource sharing
-- 🗄️ **PostgreSQL Database** - Robust data storage with complex queries and relationships
+- **JWT Authentication** - Secure token-based authentication with access and refresh tokens
+- **DApp Search** - Advanced search with filtering by categories, chains, ratings, and name
+- **DApp Details** - Comprehensive DApp information including metrics, reviews, and social links
+- **Favorites Management** - User favorites system with blockchain address-based identification
+- **CORS Protection** - Configurable cross-origin resource sharing
+- **PostgreSQL Database** - Robust data storage with complex queries and relationships
 
 ## Environment Variables
 
