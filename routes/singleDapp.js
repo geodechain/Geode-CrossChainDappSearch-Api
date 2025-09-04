@@ -3,7 +3,14 @@ var router = express.Router();
 const db = require('../db');
 const { authenticateToken } = require('../middleware/auth');
 
-// Helper function to parse TEXT fields containing JSON from PostgreSQL
+/**
+ * Parses PostgreSQL TEXT fields that contain JSON data or arrays
+ * Handles various formats including JSON objects, comma-separated values, and PostgreSQL arrays
+ * 
+ * @param {string|Array|Object} field - The field value to parse
+ * @param {string} fieldName - Name of the field being parsed for specialized handling
+ * @returns {Array|string|Object|null} Parsed field data or null if empty
+ */
 function parsePostgresArray(field, fieldName = '') {
   if (!field || field === 'null' || field === '') {
     return null;
@@ -90,7 +97,62 @@ function parsePostgresArray(field, fieldName = '') {
   }
 }
 
-// GET dapp details by ID
+/**
+ * GET /api/dapps/:dapp_id
+ * 
+ * Retrieves comprehensive information about a specific DApp including metadata,
+ * smart contract details, metrics, reviews, and ratings.
+ * 
+ * @route GET /api/dapps/:dapp_id
+ * @param {string} req.params.dapp_id - The unique identifier for the DApp (must be numeric)
+ * @returns {Object} JSON response containing DApp data
+ * 
+ * Success Response (200):
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "name": "DApp Name",
+ *     "description": "Short description",
+ *     "full_description": "Detailed description",
+ *     "logo": "logo_url",
+ *     "website": "website_url",
+ *     "chains": ["ethereum", "polygon"],
+ *     "categories": ["defi", "gaming"],
+ *     "social_links": [{"platform": "twitter", "url": "..."}],
+ *     "tags": ["tag1", "tag2"],
+ *     "smartcontract": "contract_address",
+ *     "metrics": {
+ *       "balance": 1000000,
+ *       "transactions": 50000,
+ *       "uaw": 10000,
+ *       "volume": 5000000
+ *     },
+ *     "ratings": 4.5,
+ *     "summarized_review": "Overall review summary",
+ *     "reviews": {
+ *       "platform_name": {
+ *         "review": "Review text",
+ *         "link": "review_link"
+ *       }
+ *     }
+ *   }
+ * }
+ * 
+ * Error Responses:
+ * - 400: Invalid dapp_id parameter
+ * - 401: Authentication required (handled by middleware)
+ * - 404: DApp not found
+ * - 500: Database query failed
+ * 
+ * @middleware authenticateToken - Validates JWT token before processing request
+ * 
+ * Database Tables Used:
+ * - dapps_main: Core DApp information and metadata
+ * - top_reviews: Platform reviews and links
+ * - smart_contract_info: Smart contract addresses
+ * - aggregated_metrics: Usage and financial metrics
+ * - reviews_make: Ratings and summarized reviews
+ */
 router.get('/api/dapps/:dapp_id', authenticateToken, async function (req, res, next) {
   try {
     const { dapp_id } = req.params;
