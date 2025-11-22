@@ -36,6 +36,7 @@ JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_here
 
 ### PostgreSQL Database Configuration
 ```env
+
 # Database host (REQUIRED)
 PGHOST=localhost
 
