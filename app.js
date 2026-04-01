@@ -51,7 +51,8 @@ var usersRouter = require('./routes/users');
 var dappSearchRouter = require('./routes/dapp-search');
 var singleDappRouter = require('./routes/singleDapp');
 var authRouter = require('./routes/auth');
-var favoritesRouter = require('./routes/favorites'); 
+var favoritesRouter = require('./routes/favorites');
+var boostRouter = require('./routes/boost');
 
 var app = express();
 
@@ -60,6 +61,10 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 
 app.use(logger('dev'));
+
+// Raw body parsing for Stripe webhook (must be registered before express.json)
+app.use('/api/boost/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -72,6 +77,7 @@ app.use('/users', usersRouter);
 app.use('/', dappSearchRouter);
 app.use('/', singleDappRouter);
 app.use('/', favoritesRouter);
+app.use('/', boostRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
