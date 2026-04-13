@@ -100,6 +100,7 @@ router.post('/api/boost/create-payment-intent', authenticateToken, async functio
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountNum * 100,
       currency: 'usd',
+      payment_method_types: ['card'],
       metadata: {
         dapp_id: String(dapp_id),
         account_id: account_id,
