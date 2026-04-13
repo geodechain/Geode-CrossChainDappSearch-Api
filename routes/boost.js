@@ -209,36 +209,59 @@ router.post('/api/boost/webhook', async function (req, res, next) {
 /**
  * GET /api/boost/top
  *
- * Returns the top 5 boosted DApps ordered by total boost points descending.
+ * Returns paginated boosted DApps ordered by total boost points descending.
+ * Supports optional `page` and `limit` query parameters (default: page=1, limit=3).
  * Joins with dapps_main for display fields and reviews_make for ratings.
  * The response shape matches /dapp-search to allow frontend component reuse.
  *
  * @route GET /api/boost/top
- * @returns {Object} JSON array of top boosted DApps
+ * @param {number} [req.query.page=1]  - Page number (1-indexed)
+ * @param {number} [req.query.limit=3] - Results per page
+ * @returns {Object} JSON array of boosted DApps with pagination metadata
  */
 router.get('/api/boost/top', authenticateToken, async function (req, res, next) {
   try {
-    const result = await db.query(
-      `SELECT
-         dm.dapp_id,
-         dm.name,
-         dm.logo,
-         dm.link,
-         dm.chains,
-         dm.categories,
-         COALESCE(rm.ratings, 0) AS ratings,
-         db.boost_point
-       FROM dapp_boosts db
-       JOIN dapps_main dm ON dm.dapp_id = db.dapp_id
-       LEFT JOIN reviews_make rm ON rm.dapp_id = db.dapp_id
-       WHERE db.boost_point > 0
-       ORDER BY db.boost_point DESC
-       LIMIT 5`
-    );
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 3);
+    const offset = (page - 1) * limit;
+
+    // Run data query and count query in parallel
+    const [result, countResult] = await Promise.all([
+      db.query(
+        `SELECT
+           dm.dapp_id,
+           dm.name,
+           dm.logo,
+           dm.link,
+           dm.chains,
+           dm.categories,
+           COALESCE(rm.ratings, 0) AS ratings,
+           db.boost_point
+         FROM dapp_boosts db
+         JOIN dapps_main dm ON dm.dapp_id = db.dapp_id
+         LEFT JOIN reviews_make rm ON rm.dapp_id = db.dapp_id
+         WHERE db.boost_point > 0
+         ORDER BY db.boost_point DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      ),
+      db.query(
+        `SELECT COUNT(*) FROM dapp_boosts WHERE boost_point > 0`
+      )
+    ]);
+
+    const total = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(total / limit);
 
     return res.status(200).json({
       success: true,
-      data: result.rows
+      data: result.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages
+      }
     });
   } catch (err) {
     console.error('Error fetching top boosted DApps:', err);
