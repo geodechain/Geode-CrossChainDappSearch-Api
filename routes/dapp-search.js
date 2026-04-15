@@ -55,14 +55,14 @@ function buildOrClause(field, values) {
 router.get('/dapp-search', authenticateToken, async function (req, res, next) {
     try {
         // Extract and parse query parameters
-        let { category, chain, ratings, name, limit = 20, page = 1 } = req.query; 
+        let { category, chain, ratings, name, limit = 20, page = 1 } = req.query;
         limit = parseInt(limit);
         page = parseInt(page);
         const offset = (page - 1) * limit;
 
         let whereClauses = [];
-        let queryParams = [limit, offset];
-        let paramIndex = 3;
+        let whereParams = [];
+        let paramIndex = 1;
 
         // Handle category filtering
         if (category) {
@@ -87,8 +87,8 @@ router.get('/dapp-search', authenticateToken, async function (req, res, next) {
             whereClauses.push(`rm.ratings >= 1`);
         }
         if (name) {
-            whereClauses.push(`dm.name ILIKE $${paramIndex}`);
-            queryParams.push(`%${name}%`);
+            whereClauses.push('dm.name ILIKE $' + paramIndex);
+            whereParams.push('%' + name + '%');
             paramIndex++;
         }
 
@@ -99,34 +99,38 @@ router.get('/dapp-search', authenticateToken, async function (req, res, next) {
             whereSQL = 'WHERE ' + whereClauses.join(' AND ');
         }
 
+        // LIMIT and OFFSET use the next available param indices after WHERE params
+        const limitParam = '$' + paramIndex;
+        const offsetParam = '$' + (paramIndex + 1);
+
         // Build the main SQL query
         // This query joins dapps_main with reviews_make to get rating information
-        const query = `
-            SELECT 
-                dm.dapp_id, 
-                dm.name,
-                dm.chains, 
-                dm.categories,
-                dm.logo,
-                dm.link,
-                rm.ratings
-            FROM 
-                dapps_main dm
-            LEFT JOIN 
-                reviews_make rm ON dm.dapp_id = rm.dapp_id
-            ${whereSQL}
-            ORDER BY 
-                rm.ratings DESC
-            LIMIT $1 OFFSET $2
-        `;
+        const query = 'SELECT dm.dapp_id, dm.name, dm.chains, dm.categories, dm.logo, dm.link, rm.ratings '
+            + 'FROM dapps_main dm '
+            + 'LEFT JOIN reviews_make rm ON dm.dapp_id = rm.dapp_id '
+            + whereSQL + ' '
+            + 'ORDER BY rm.ratings DESC '
+            + 'LIMIT ' + limitParam + ' OFFSET ' + offsetParam;
+
+        // WHERE params first, then limit and offset at the end
+        const queryParams = [...whereParams, limit, offset];
 
         console.log(query, queryParams, "query")
 
         // Execute the database query with parameters
         const result = await db.query(query, queryParams);
 
-        // Return the query results as JSON
-        res.json(result.rows);
+        // Count query for pagination — reuses same whereSQL and whereParams
+        const countQuery = 'SELECT COUNT(*) AS total '
+            + 'FROM dapps_main dm '
+            + 'LEFT JOIN reviews_make rm ON dm.dapp_id = rm.dapp_id '
+            + whereSQL;
+
+        const countResult = await db.query(countQuery, whereParams);
+        const total = parseInt(countResult.rows[0].total, 10);
+
+        // Return paginated response with total count
+        res.json({ data: result.rows, total: total });
 
     } catch (e) {
         next(e);
