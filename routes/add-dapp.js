@@ -1,43 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
 const db = require('../db');
 const { authenticateToken } = require('../middleware/auth');
-
-/**
- * Generate a deterministic integer dapp_id from a URL using MD5 hash.
- * Mirrors the logic in data-pull-automations/services/scrapeMagicSquareDapp.service.ts
- *
- * @param {string} url - The URL to hash
- * @returns {number} - Positive 31-bit integer ID
- */
-function generateDappId(url) {
-  const hash = crypto.createHash('md5').update(url).digest('hex');
-  return parseInt(hash.substring(0, 8), 16) & 0x7FFFFFFF;
-}
-
-/**
- * Strip query parameters (UTM tracking, etc.) from a URL and normalize.
- * Mirrors cleanWebsiteUrl() from data-pull-automations.
- *
- * @param {string} raw - Raw URL input
- * @returns {string|null} - Cleaned URL or null if invalid
- */
-function cleanWebsiteUrl(raw) {
-  if (!raw || raw.trim() === '') return null;
-  try {
-    const u = new URL(raw);
-    let clean = u.origin + u.pathname;
-    if (u.pathname === '/' || u.pathname === '') {
-      clean = u.origin + '/';
-    } else {
-      clean = clean.replace(/\/+$/, '');
-    }
-    return clean;
-  } catch {
-    return raw.trim();
-  }
-}
+const { generateDappId, cleanWebsiteUrl } = require('../utils/dapp-helpers');
 
 /**
  * POST /api/dapps
