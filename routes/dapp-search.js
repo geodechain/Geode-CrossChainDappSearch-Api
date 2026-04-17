@@ -74,6 +74,9 @@ function buildOrClause(field, values) {
  *   unconditionally, newly approved dApps (which have no entry in reviews_make
  *   yet) would never appear in search results — the LEFT JOIN would produce
  *   NULL for rm.ratings, and NULL >= 1 is FALSE in SQL.
+ *
+ * Response:
+ *   { data: DApp[], total: number } — paginated rows plus total count for the UI.
  */
 router.get('/dapp-search', authenticateToken, async function (req, res, next) {
     try {
@@ -83,10 +86,11 @@ router.get('/dapp-search', authenticateToken, async function (req, res, next) {
         const offset = (page - 1) * limit;
 
         // WHERE clauses are accumulated here and joined with AND.
-        // $1 and $2 are always limit/offset, so parameterised filters start at $3.
+        // whereParams holds parameterised values; limit/offset are appended after
+        // so their $N indices are always last.
         let whereClauses = [];
-        let queryParams = [limit, offset];
-        let paramIndex = 3;
+        let whereParams = [];
+        let paramIndex = 1;
 
         // Category filter: accept both repeated query keys (?category=DeFi&category=Gaming)
         // and a single comma-separated string (?category=DeFi,Gaming).
@@ -116,7 +120,7 @@ router.get('/dapp-search', authenticateToken, async function (req, res, next) {
         // arbitrary user-supplied text with ILIKE for case-insensitive matching.
         if (name) {
             whereClauses.push(`dm.name ILIKE $${paramIndex}`);
-            queryParams.push(`%${name}%`);
+            whereParams.push(`%${name}%`);
             paramIndex++;
         }
 
@@ -126,9 +130,14 @@ router.get('/dapp-search', authenticateToken, async function (req, res, next) {
             whereSQL = 'WHERE ' + whereClauses.join(' AND ');
         }
 
+        // WHERE params come first; limit and offset are appended so their $N
+        // indices are always at the end of the params array.
+        const limitParam = `$${paramIndex}`;
+        const offsetParam = `$${paramIndex + 1}`;
+        const queryParams = [...whereParams, limit, offset];
+
         // LEFT JOIN keeps dApps with no reviews_make row (NULL ratings) in the result set.
         // ORDER BY rm.ratings DESC naturally floats NULLs to the bottom in PostgreSQL.
-        // $1 / $2 are always limit and offset; additional filter params follow from $3 onward.
         const query = `
             SELECT
                 dm.dapp_id,
@@ -145,14 +154,25 @@ router.get('/dapp-search', authenticateToken, async function (req, res, next) {
             ${whereSQL}
             ORDER BY
                 rm.ratings DESC
-            LIMIT $1 OFFSET $2
+            LIMIT ${limitParam} OFFSET ${offsetParam}
         `;
 
         console.log(query, queryParams, "query")
 
         const result = await db.query(query, queryParams);
 
-        res.json(result.rows);
+        // Count query for pagination — reuses same whereSQL and whereParams.
+        const countQuery = `
+            SELECT COUNT(*) AS total
+            FROM dapps_main dm
+            LEFT JOIN reviews_make rm ON dm.dapp_id = rm.dapp_id
+            ${whereSQL}
+        `;
+
+        const countResult = await db.query(countQuery, whereParams);
+        const total = parseInt(countResult.rows[0].total, 10);
+
+        res.json({ data: result.rows, total });
 
     } catch (e) {
         next(e);

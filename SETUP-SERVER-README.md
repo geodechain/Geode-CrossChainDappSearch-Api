@@ -6,7 +6,7 @@ This document provides the technical setup and deployment guide for the **Geode 
 - **Backend:** Express.js application running on **port 3001**
 - **Domain:** [https://geode-dappsearch.com](https://geode-dappsearch.com)
 - **Process Manager:** PM2 (manages backend + webhook listener)
-- **Automation:** GitHub webhook pulls latest changes from the `crosschainDappsearch-api` branch
+- **Automation:** GitHub webhook pulls latest changes from the `prod` branch
 <!-- 
 This documentation is for **internal employees** to understand, maintain, and troubleshoot the system. -->
 
@@ -15,7 +15,7 @@ This documentation is for **internal employees** to understand, maintain, and tr
 ## 1. Server Environment
 - Provider: **Contabo VPS**
 - OS: **Ubuntu 20.04 LTS**
-- Backend: **Express.js app (server.js)** on port `3001`
+- Backend: **Express.js app (bin/www)** on port `3001`
 - Process Manager: **PM2**
 - Reverse Proxy & SSL: **Nginx + Zero SSL**
 - Deployment Automation: **GitHub Webhook + Node.js listener**
@@ -102,8 +102,8 @@ The backend API is an **Express.js app** running on port `3001`.
 
 ### Start with PM2
 ```bash
-cd /root/Geode-ccdapp-api
-pm2 start --name crosschain-api
+cd /root/Geode-CrossChainDappSearch-Api
+pm2 start ./bin/www --name crosschain-api
 pm2 save
 ```
 
@@ -153,11 +153,11 @@ app.post('/webhook', (req, res) => {
   console.log('✅ Webhook verified. Deploying...');
 
   exec(`
-    cd /root/Geode-ccdapp-api && \
+    cd /root/Geode-CrossChainDappSearch-Api && \
     git fetch origin prod && \
     git reset --hard origin/prod && \
     npm install && \
-    pm2 restart geode-ccdapp-api
+    pm2 restart crosschain-api
   `, (err, stdout, stderr) => {
     if (err) {
       console.error('Deployment failed:', stderr);
@@ -176,14 +176,15 @@ app.listen(3002, () => {
 
 ### Run with PM2
 ```bash
-cd /root/webhook
-pm2 start webhook.js --name webhook-listener
+cd /root/webhook-listener
+# NOTE: confirm the actual filename on the server (app.js or webhook.js) before running
+pm2 start app.js --name webhook-listener
 pm2 save
 ```
 
 ---
 
-## 7. PM2 Process Management
+## 6. PM2 Process Management
 
 ### Common Commands
 ```bash
@@ -209,7 +210,7 @@ pm2 startup systemd
 
 ---
 
-## 8. Troubleshooting
+## 7. Troubleshooting
 
 ### Nginx
 ```bash
@@ -227,14 +228,14 @@ pm2 logs webhook-listener
 
 ### Manual Git Reset
 ```bash
-cd /root/Geode-ccdapp-api
+cd /root/Geode-CrossChainDappSearch-Api
 git fetch origin prod
 git reset --hard origin/prod
 ```
 
 ---
 
-## 9. Maintenance Notes
+## 8. Maintenance Notes
 - SSL certificates via ZeroSSL .  
 - Always run `pm2 save` after modifying processes.  
 - Monitor webhook + backend logs after deployments.  
