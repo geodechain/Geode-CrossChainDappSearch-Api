@@ -1,6 +1,7 @@
 // Import required modules and dependencies
 var createError = require('http-errors');
 var express = require('express');
+var bodyParser = require('body-parser');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
@@ -51,7 +52,10 @@ var usersRouter = require('./routes/users');
 var dappSearchRouter = require('./routes/dapp-search');
 var singleDappRouter = require('./routes/singleDapp');
 var authRouter = require('./routes/auth');
-var favoritesRouter = require('./routes/favorites'); 
+var favoritesRouter = require('./routes/favorites');
+var boostRouter = require('./routes/boost');
+var addDappRouter = require('./routes/add-dapp');
+var submissionsRouter = require('./routes/submissions');
 
 var app = express();
 
@@ -60,6 +64,10 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 
 app.use(logger('dev'));
+
+// Raw body parsing for Stripe webhook (must be registered before express.json)
+app.use('/api/boost/webhook', bodyParser.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -72,6 +80,9 @@ app.use('/users', usersRouter);
 app.use('/', dappSearchRouter);
 app.use('/', singleDappRouter);
 app.use('/', favoritesRouter);
+app.use('/', boostRouter);
+app.use('/', addDappRouter);
+app.use('/', submissionsRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

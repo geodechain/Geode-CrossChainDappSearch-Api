@@ -6,7 +6,7 @@ This document provides the technical setup and deployment guide for the **Geode 
 - **Backend:** Express.js application running on **port 3001**
 - **Domain:** [https://geode-dappsearch.com](https://geode-dappsearch.com)
 - **Process Manager:** PM2 (manages backend + webhook listener)
-- **Automation:** GitHub webhook pulls latest changes from the `crosschainDappsearch-api` branch
+- **Automation:** GitHub webhook pulls latest changes from the `prod` branch
 <!-- 
 This documentation is for **internal employees** to understand, maintain, and troubleshoot the system. -->
 
@@ -14,8 +14,8 @@ This documentation is for **internal employees** to understand, maintain, and tr
 
 ## 1. Server Environment
 - Provider: **Contabo VPS**
-- OS: **Ubuntu 20.04 LTS**
-- Backend: **Express.js app (server.js)** on port `3001`
+- OS: **Ubuntu 24.04.2 LTS**
+- Backend: **Express.js app (bin/www)** on port `3001`
 - Process Manager: **PM2**
 - Reverse Proxy & SSL: **Nginx + Zero SSL**
 - Deployment Automation: **GitHub Webhook + Node.js listener**
@@ -40,8 +40,8 @@ sudo npm install -g pm2
 ### Clone Repository
 ```bash
 cd /root
-git clone https://github.com/geodechain/Geode-CrossChainDappSearch-Api.git
-cd Geode-CrossChainDappSearch-Api
+git clone https://github.com/geodechain/Geode-CrossChainDappSearch-Api.git Geode-ccdapp-api
+cd Geode-ccdapp-api
 git checkout prod
 npm install
 ```
@@ -53,7 +53,6 @@ npm install
 ### Configuration File
 `/etc/nginx/sites-available/geode-dappsearch`
 ```nginx
-  GNU nano 7.2                                   geode-dappsearch.com
 server {
     listen 80;
     server_name geode-dappsearch.com;
@@ -79,14 +78,13 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-location /webhook {
-    proxy_pass http://localhost:3002/webhook;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
+    location /webhook {
+        proxy_pass http://localhost:3002/webhook;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
 }
-}
-
 ```
 
 ### Enable & Reload
@@ -96,6 +94,8 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+---
+
 ## 4. Backend Express Application
 
 The backend API is an **Express.js app** running on port `3001`.
@@ -103,24 +103,24 @@ The backend API is an **Express.js app** running on port `3001`.
 ### Start with PM2
 ```bash
 cd /root/Geode-ccdapp-api
-pm2 start --name crosschain-api
+pm2 start ./bin/www --name geode-ccdapp-api
 pm2 save
 ```
 
 ### Check status and logs
 ```bash
 pm2 status
-pm2 logs crosschain-api
+pm2 logs geode-ccdapp-api
 ```
 
 ---
 
 ## 5. Webhook Listener for Auto-Deploy
 
-A **Node.js Express app** listens for GitHub push events and triggers deployment.
+A **Node.js Express app** at `/root/webhook/webhook.js` listens for GitHub push events and triggers automatic deployment when a push to the `prod` branch is detected.
 
 ### Listener Code
-`/root/webhook-listener/app.js`
+`/root/webhook/webhook.js`
 ```javascript
 const express = require('express');
 const crypto = require('crypto');
@@ -171,7 +171,6 @@ app.post('/webhook', (req, res) => {
 app.listen(3002, () => {
   console.log('Listening for webhook on port 3002');
 });
-
 ```
 
 ### Run with PM2
@@ -183,7 +182,7 @@ pm2 save
 
 ---
 
-## 7. PM2 Process Management
+## 6. PM2 Process Management
 
 ### Common Commands
 ```bash
@@ -191,15 +190,15 @@ pm2 save
 pm2 status
 
 # Restart services
-pm2 restart crosschain-api
+pm2 restart geode-ccdapp-api
 pm2 restart webhook-listener
 
 # Stop or delete
-pm2 stop crosschain-api
+pm2 stop geode-ccdapp-api
 pm2 delete webhook-listener
 
 # View logs
-pm2 logs crosschain-api
+pm2 logs geode-ccdapp-api
 pm2 logs webhook-listener
 
 # Save config & startup
@@ -209,7 +208,7 @@ pm2 startup systemd
 
 ---
 
-## 8. Troubleshooting
+## 7. Troubleshooting
 
 ### Nginx
 ```bash
@@ -221,7 +220,7 @@ tail -f /var/log/nginx/error.log
 
 ### Backend / Webhook
 ```bash
-pm2 logs crosschain-api
+pm2 logs geode-ccdapp-api
 pm2 logs webhook-listener
 ```
 
@@ -234,8 +233,9 @@ git reset --hard origin/prod
 
 ---
 
-## 9. Maintenance Notes
-- SSL certificates via ZeroSSL .  
-- Always run `pm2 save` after modifying processes.  
-- Monitor webhook + backend logs after deployments.  
+## 8. Maintenance Notes
+- SSL certificates via ZeroSSL.
+- Always run `pm2 save` after modifying processes.
+- Monitor webhook + backend logs after deployments.
+- Deployment is triggered automatically by pushing to the `prod` branch on GitHub. No manual `git pull` or `pm2 restart` is needed.
 ---

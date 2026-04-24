@@ -1,6 +1,6 @@
 # Geode Cross-Chain DApp Search API
 
-A comprehensive REST API for searching and managing cross-chain decentralized applications (DApps) with user authentication, favorites management, and detailed DApp information.
+A comprehensive REST API for searching and managing cross-chain decentralized applications (DApps) with user authentication, favorites management, DApp boost payments, and detailed DApp information.
 
 ## Table of Contents
 
@@ -15,9 +15,12 @@ A comprehensive REST API for searching and managing cross-chain decentralized ap
 ## Features
 
 - **JWT Authentication** - Secure token-based authentication with access and refresh tokens
-- **DApp Search** - Advanced search with filtering by categories, chains, ratings, and name
+- **DApp Search** - Advanced search with filtering by categories, chains, ratings, and name with pagination
 - **DApp Details** - Comprehensive DApp information including metrics, reviews, and social links
+- **DApp Submission Workflow** - User-submitted DApps with admin review, approval, and rejection
+- **DApp Management** - Direct dApp addition with duplicate detection
 - **Favorites Management** - User favorites system with blockchain address-based identification
+- **DApp Boost** - Stripe payment-based boost system with leaderboard and history
 - **CORS Protection** - Configurable cross-origin resource sharing
 - **PostgreSQL Database** - Robust data storage with complex queries and relationships
 
@@ -36,7 +39,6 @@ JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_here
 
 ### PostgreSQL Database Configuration
 ```env
-
 # Database host (REQUIRED)
 PGHOST=localhost
 
@@ -53,6 +55,21 @@ PGUSER=your_username
 PGPASSWORD=your_password
 ```
 
+### Server Configuration
+```env
+# Server port (optional, defaults to 3000)
+PORT=3000
+```
+
+### Stripe Configuration
+```env
+# Stripe secret key for payment processing (REQUIRED for boost feature)
+STRIPE_SECRET_KEY=sk_live_...
+
+# Stripe webhook signing secret for verifying webhook events (REQUIRED for boost feature)
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
 ### Environment Variable Details
 
 | Variable | Type | Required | Description |
@@ -64,6 +81,9 @@ PGPASSWORD=your_password
 | `PGDATABASE` | String | Yes | PostgreSQL database name |
 | `PGUSER` | String | Yes | PostgreSQL database username |
 | `PGPASSWORD` | String | Yes | PostgreSQL database password |
+| `PORT` | Number | No | Server port (default: 3000) |
+| `STRIPE_SECRET_KEY` | String | Yes* | Stripe secret key (*required for boost endpoints) |
+| `STRIPE_WEBHOOK_SECRET` | String | Yes* | Stripe webhook signing secret (*required for boost endpoints) |
 
 ## Installation
 
@@ -168,7 +188,7 @@ Authorization: Bearer <access_token>
 ### DApp Search Endpoints
 
 #### GET `/dapp-search`
-Search and filter DApps with advanced filtering options.
+Search and filter DApps with advanced filtering options. Returns paginated results with a total count.
 
 **Headers:**
 ```
@@ -176,9 +196,9 @@ Authorization: Bearer <access_token>
 ```
 
 **Query Parameters:**
-- `category` (string|array): DApp categories to filter by
-- `chain` (string|array): Blockchain chains to filter by
-- `ratings` (number): Minimum rating threshold (default: 1)
+- `category` (string|array): DApp categories to filter by (OR logic; accepts comma-separated or repeated keys)
+- `chain` (string|array): Blockchain chains to filter by (OR logic; accepts comma-separated or repeated keys)
+- `ratings` (number): Minimum rating threshold — only applied when explicitly provided; omitting it includes unrated DApps
 - `name` (string): Partial name search (case-insensitive)
 - `limit` (number): Number of results per page (default: 20)
 - `page` (number): Page number for pagination (default: 1)
@@ -190,17 +210,20 @@ GET /dapp-search?category=DeFi&chain=Ethereum&ratings=4&name=uniswap&limit=10&pa
 
 **Response:**
 ```json
-[
-  {
-    "dapp_id": 1,
-    "name": "Uniswap",
-    "chains": "Ethereum",
-    "categories": "DeFi",
-    "logo": "https://example.com/logo.png",
-    "link": "https://uniswap.org",
-    "ratings": 4.5
-  }
-]
+{
+  "data": [
+    {
+      "dapp_id": 1,
+      "name": "Uniswap",
+      "chains": "Ethereum",
+      "categories": "DeFi",
+      "logo": "https://example.com/logo.png",
+      "link": "https://uniswap.org",
+      "ratings": 4.5
+    }
+  ],
+  "total": 42
+}
 ```
 
 ### DApp Details Endpoints
@@ -251,6 +274,101 @@ Authorization: Bearer <access_token>
       }
     }
   }
+}
+```
+
+### DApp Management Endpoints
+
+#### POST `/api/dapps`
+Add a new DApp directly to the store. Requires JWT authentication. Checks for duplicate name and website.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+```json
+{
+  "name": "My DApp",
+  "description": "Short description",
+  "website": "https://mydapp.com",
+  "chains": ["Ethereum", "Polygon"],
+  "categories": ["DeFi"],
+  "full_description": "Detailed description (optional)",
+  "logo": "https://example.com/logo.png",
+  "social_links": [{ "title": "Twitter", "url": "https://twitter.com/mydapp", "type": "twitter" }],
+  "tags": ["yield-farming"]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "dapp_id": 12345,
+    "name": "My DApp",
+    "description": "Short description",
+    "website": "https://mydapp.com",
+    "chains": "[\"Ethereum\",\"Polygon\"]",
+    "categories": "[\"DeFi\"]",
+    "created_at": "2025-01-01T00:00:00.000Z"
+  },
+  "message": "dApp added successfully. Reviews will be generated automatically."
+}
+```
+
+### DApp Submission Endpoints
+
+Users can submit DApps for admin review before they appear in search results.
+
+#### POST `/api/submissions`
+Submit a new DApp for review.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Request Body:** Same fields as `POST /api/dapps`, plus `submitter_email` (required).
+
+#### GET `/api/submissions`
+List all pending submissions (admin use).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+#### GET `/api/submissions/:submission_id`
+Fetch details for a single submission.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+#### PATCH `/api/submissions/:submission_id/approve`
+Approve a submission and promote it to `dapps_main`.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+#### PATCH `/api/submissions/:submission_id/reject`
+Reject a submission with an optional reason.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+```json
+{
+  "reason": "Does not meet listing requirements"
 }
 ```
 
@@ -357,6 +475,156 @@ Check if a specific DApp is in user's favorites.
 }
 ```
 
+### DApp Boost Endpoints
+
+Allows users to boost DApps via Stripe payments. Each USD paid equals one boost point.
+
+#### POST `/api/boost/create-payment-intent`
+Create a Stripe PaymentIntent to boost a DApp. The client uses the returned `clientSecret` to complete payment via Stripe Elements.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+```json
+{
+  "dapp_id": 123,
+  "amount": 10,
+  "account_id": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+}
+```
+
+- `amount`: Integer, $1–$100 USD
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "clientSecret": "pi_xxx_secret_xxx",
+    "transactionId": 42
+  }
+}
+```
+
+#### POST `/api/boost/webhook`
+Stripe webhook endpoint. Processes `payment_intent.succeeded` and `payment_intent.payment_failed` events to credit or mark boost transactions. Must be registered in the Stripe dashboard.
+
+#### GET `/api/boost/top`
+Returns paginated DApps ordered by total boost points descending.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Query Parameters:**
+- `page` (number): Page number (default: 1)
+- `limit` (number): Results per page (default: 3)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "dapp_id": 1,
+      "name": "Uniswap",
+      "logo": "https://example.com/logo.png",
+      "link": "https://uniswap.org",
+      "chains": "Ethereum",
+      "categories": "DeFi",
+      "ratings": 4.5,
+      "boost_point": 250
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 3,
+    "total": 12,
+    "totalPages": 4
+  }
+}
+```
+
+#### GET `/api/boost/status/:dapp_id`
+Get the current boost point total for a DApp.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "dapp_id": 1,
+    "boost_point": 250
+  }
+}
+```
+
+#### GET `/api/boost/history/:dapp_id`
+Get the list of users who have boosted a DApp, ordered by total contribution.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "dapp_id": 1,
+    "boosters": [
+      {
+        "account_id": "5Grw...",
+        "total_points": 50,
+        "boost_count": 3,
+        "last_boosted_at": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+#### GET `/api/boost/my-boosts`
+Get all DApps a user has boosted along with their contribution totals.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Query Parameters:**
+- `account_id` (string): Polkadot wallet address
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "account_id": "5Grw...",
+    "boosts": [
+      {
+        "dapp_id": 1,
+        "name": "Uniswap",
+        "logo": "https://example.com/logo.png",
+        "my_points": 50,
+        "boost_count": 3,
+        "last_boosted_at": "2025-01-01T00:00:00.000Z",
+        "total_dapp_points": 250
+      }
+    ]
+  }
+}
+```
 
 ## Authentication
 
@@ -386,11 +654,14 @@ The API uses PostgreSQL with the following main tables:
 
 - `api_clients`: Client authentication credentials
 - `dapps_main`: Main DApp information
+- `dapp_submissions`: User-submitted DApps pending admin review
 - `reviews_make`: DApp ratings and reviews
 - `top_reviews`: Platform-specific reviews
 - `smart_contract_info`: Smart contract details
 - `aggregated_metrics`: DApp performance metrics
 - `userPrefs`: User favorites and preferences
+- `boost_transactions`: Stripe boost payment records
+- `dapp_boosts`: DApp boost point totals
 
 ## CORS Configuration
 
@@ -418,6 +689,7 @@ Common HTTP status codes:
 - `400`: Bad Request (invalid parameters)
 - `401`: Unauthorized (invalid/missing token)
 - `404`: Not Found
+- `409`: Conflict (duplicate DApp)
 - `500`: Internal Server Error
 
 ## Dependencies
@@ -426,8 +698,10 @@ Common HTTP status codes:
 - **jsonwebtoken**: JWT token handling
 - **bcryptjs**: Password hashing
 - **pg**: PostgreSQL client
+- **stripe**: Stripe payment processing
 - **cors**: Cross-origin resource sharing
 - **dotenv**: Environment variable management
+- **body-parser**: Request body parsing
 - **morgan**: HTTP request logging
 - **cookie-parser**: Cookie parsing
 - **jade**: Template engine
