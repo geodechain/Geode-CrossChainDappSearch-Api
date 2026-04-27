@@ -140,9 +140,10 @@ function parsePostgresArray(field, fieldName = '') {
  * five joined tables in one query, then reshaping the result in application code.
  *
  * JOIN strategy:
- *   All four joins are INNER JOINs. This means a dApp will return 404 if it
- *   lacks a row in top_reviews, smart_contract_info, aggregated_metrics, or
- *   reviews_make. This is intentional — the detail page requires complete data.
+ *   All four joins are LEFT JOINs. This means a dApp will still be returned
+ *   even if it lacks rows in top_reviews, smart_contract_info,
+ *   aggregated_metrics, or reviews_make — the detail page renders gracefully
+ *   with null/default values for missing data.
  *
  *   top_reviews may have multiple rows per dApp (one per platform), which causes
  *   the query to return multiple result rows. All metadata columns (name, chains,
@@ -193,18 +194,18 @@ router.get('/api/dapps/:dapp_id', authenticateToken, async function (req, res, n
         rm.ratings::float AS ratings,
         rm.summarized_review
       FROM dapps_main AS dm
-      JOIN top_reviews AS tr ON dm.dapp_id = tr.dapp_id
-      JOIN smart_contract_info AS sc ON sc.dapp_id = dm.dapp_id
-      JOIN aggregated_metrics AS am ON am.dapp_id = dm.dapp_id
-      JOIN reviews_make AS rm ON rm.dapp_id = dm.dapp_id
+      LEFT JOIN top_reviews AS tr ON dm.dapp_id = tr.dapp_id
+      LEFT JOIN smart_contract_info AS sc ON sc.dapp_id = dm.dapp_id
+      LEFT JOIN aggregated_metrics AS am ON am.dapp_id = dm.dapp_id
+      LEFT JOIN reviews_make AS rm ON rm.dapp_id = dm.dapp_id
       WHERE dm.dapp_id = $1
     `;
 
     const result = await db.query(query, [dapp_id]);
 
-    // 0 rows means either the dApp doesn't exist or it's missing a required
-    // related row (smart_contract_info, aggregated_metrics, etc.) — both cases
-    // are surfaced as 404 since the detail page cannot render partial data.
+    // 0 rows means the dApp doesn't exist in dapps_main at all.
+    // LEFT JOINs ensure we still get a result even if related tables
+    // (reviews, metrics, contracts) have no entries yet.
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -228,15 +229,15 @@ router.get('/api/dapps/:dapp_id', authenticateToken, async function (req, res, n
       categories: parsePostgresArray(firstRow.categories, 'categories'),
       social_links: parsePostgresArray(firstRow.social_links, 'social_links'),
       tags: parsePostgresArray(firstRow.tags, 'tags'),
-      smartcontract: firstRow.smartcontract,
+      smartcontract: firstRow.smartcontract || null,
       metrics: {
-        balance: firstRow.balance,
-        transactions: firstRow.transactions,
-        uaw: firstRow.uaw,       // Unique Active Wallets
-        volume: firstRow.volume
+        balance: firstRow.balance || '0',
+        transactions: firstRow.transactions || '0',
+        uaw: firstRow.uaw || 0,       // Unique Active Wallets
+        volume: firstRow.volume || '0'
       },
-      ratings: firstRow.ratings,
-      summarized_review: firstRow.summarized_review,
+      ratings: firstRow.ratings || 0,
+      summarized_review: firstRow.summarized_review || null,
       reviews: {}  // Populated below by iterating all rows
     };
 

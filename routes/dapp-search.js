@@ -130,10 +130,6 @@ router.get('/dapp-search', authenticateToken, async function (req, res, next) {
             whereSQL = 'WHERE ' + whereClauses.join(' AND ');
         }
 
-        // LIMIT and OFFSET use the next available param indices after WHERE params
-        const limitParam = '$' + paramIndex;
-        const offsetParam = '$' + (paramIndex + 1);
-
         // WHERE params come first; limit and offset are appended so their $N
         // indices are always at the end of the params array.
         const limitParam = `$${paramIndex}`;
