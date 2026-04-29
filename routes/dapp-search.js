@@ -20,32 +20,29 @@ const { authenticateToken } = require('../middleware/auth');
  * Builds a SQL OR clause for a TEXT column that stores comma-separated values.
  *
  * dapps_main stores chains and categories as comma-separated TEXT
- * (e.g. "Ethereum,Polygon"), so a single equality check per requested value is
- * used rather than ANY() or array operators. Multiple values are joined with OR
- * so a dApp matching *any* of the requested values is returned.
+ * (e.g. "Ethereum,Polygon" or "DeFi,Exchanges"), so ILIKE with wildcards
+ * is used to match within the string. This also handles case differences
+ * (e.g. frontend sends 'exchange' but DB stores 'Exchanges') and
+ * singular/plural mismatches.
  *
  * SQL INJECTION NOTE: Values are interpolated directly into the SQL string
  * rather than passed as parameterised placeholders. This is acceptable here
  * because filter values (category names, chain names) come from a known,
  * controlled set defined by the frontend dropdowns — they are not free-text
  * user input. If this endpoint is ever exposed to arbitrary user strings,
- * parameterised IN() or a whitelist check must replace this approach.
+ * parameterised queries or a whitelist check must replace this approach.
  *
  * @param {string} field  - Qualified column name, e.g. "dm.categories"
  * @param {string[]} values - Array of filter values
- * @returns {string} SQL fragment like "(dm.categories = 'DeFi' OR dm.categories = 'Gaming')"
+ * @returns {string} SQL fragment like "(dm.categories ILIKE '%exchange%' OR dm.categories ILIKE '%gaming%')"
  *                   or '' if values is empty
- *
- * Example:
- *   buildOrClause('dm.categories', ['DeFi', 'Gaming'])
- *   → "dm.categories = 'DeFi' OR dm.categories = 'Gaming'"
  */
 function buildOrClause(field, values) {
     if (!values || values.length === 0) return '';
 
     if (!Array.isArray(values)) values = [values];
 
-    return values.map(val => `${field} = '${val}'`).join(' OR ');
+    return values.map(val => `${field} ILIKE '%${val}%'`).join(' OR ');
 }
 
 /**
